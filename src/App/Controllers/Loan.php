@@ -129,12 +129,12 @@ class Loan
         $yy = (int)substr($ktp, 10, 2);
 
         // Check for women's KTP (adjusted by adding 40 to DD)
-        if ($dd > 31) {
+        if ($dd > 40) {
             $dd -= 40; // Adjust to valid day for women
         }
 
         // Validate the date (DDMMYY)
-        $isValidDate = checkdate($mm, $dd, 2000 + $yy);
+        $isValidDate = checkdate($mm, $dd, 1900 + $yy);
         return $isValidDate;
     }
 }
