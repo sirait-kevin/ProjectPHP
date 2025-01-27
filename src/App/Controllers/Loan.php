@@ -8,7 +8,7 @@ use App\Entities\UserData;
 use App\Repositories\CSVWriter;
 use Psr\Http\Message\ResponseInterface as Response;
 use Respect\Validation\Validator as v;
-use Slim\Psr7\Request;
+use Psr\Http\Message\ServerRequestInterface as Request;
 
 class Loan
 {
