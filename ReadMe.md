@@ -28,3 +28,9 @@ run:
 ```
 composer start
 ```
+
+test:
+
+```
+./vendor/bin/phpunit tests
+```
