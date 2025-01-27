@@ -2,78 +2,82 @@
 
 declare(strict_types=1);
 
+use PHPUnit\Framework\TestCase;
 use App\Controllers\Loan;
 use App\Repositories\CSVWriter;
-use GuzzleHttp\Psr7\ServerRequest;
-use PHPUnit\Framework\TestCase;
-use Slim\Psr7\Factory\ResponseFactory;
+use App\Entities\UserData;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\ResponseInterface;
+use Nyholm\Psr7\Response;
+use Nyholm\Psr7\ServerRequest;
 
 class LoanTest extends TestCase
 {
+    private Loan $loan;
+    private CSVWriter $mockWriter;
+
+    protected function setUp(): void
+    {
+        $this->mockWriter = $this->createMock(CSVWriter::class);
+        $this->loan = new Loan($this->mockWriter);
+    }
 
     public function testConstructSuccess(): void
     {
-        $loan = new Loan(new CSVWriter(""));
-
-        $this->assertNotNull($loan);
+        $this->assertNotNull($this->loan);
     }
 
-    // public function testSubmitSuccess(): void
-    // {
-    //     $mockCSVWriter = $this->getMockBuilder('App\Repositories\CSVWriter')
-    //         ->setConstructorArgs([''])
-    //         ->onlyMethods(array('write'))
-    //         ->getMock();
-
-    //     $loan = new Loan($mockCSVWriter);
-
-    //     $expectedRes = json_encode([
-    //         'message' => 'Product created'
-    //     ]);
-
-    //     $reqBody = json_encode([
-    //         "name" => "Budi Pambudi",
-    //         "loanAmount" => 1004,
-    //         "loanPurpose" => "vacation staycation marmosa",
-    //         "ktp" => "1234560101940001",
-    //         "dateOfBirth" => "1999-10-21",
-    //         "sex" => "male"
-    //     ]);
-
-    //     $request = $this->getMockBuilder('Psr\Http\Message\ServerRequestInterface')
-    //         ->onlyMethods(array('getParsedBody'));
-
-
-
-
-    //     $resFactory = new ResponseFactory();
-    //     $response = $resFactory->createResponse(200);
-
-
-    //     $this->assertSame($expectedRes, $loan->submit($request, $response)->getBody());
-    // }
-
-    public function testSubmitErrorName(): void
+    public function testSubmitValidRequest(): void
     {
-        $loan = new Loan(new CSVWriter(""));
+        $requestData = [
+            'name' => 'John Doe',
+            'ktp' => '1234564103001956',
+            'loanAmount' => 5000,
+            'loanPurpose' => 'vacation',
+            'dateOfBirth' => '1990-03-15',
+            'sex' => 'male'
+        ];
 
-        $expectedRes = json_encode([
-            'message' => 'All of the required rules must pass for name'
-        ]);
+        $request = new ServerRequest('POST', '/submit', [], json_encode($requestData));
+        $response = new Response();
 
-        $reqBody = json_encode([
-            "loanAmount" => 1004,
-            "loanPurpose" => "vacation staycation marmosa",
-            "ktp" => "1234560101940001",
-            "dateOfBirth" => "1999-10-21",
-            "sex" => "male",
-        ]);
-        $request = new ServerRequest('POST', '', [], $reqBody);
-        // $request->getBody()->write($reqBody);
+        $result = $this->loan->submit($request, $response);
 
+        $this->assertEquals(200, $result->getStatusCode());
+        $this->assertJsonStringEqualsJsonString(
+            json_encode(['message' => 'Product created']),
+            (string)$result->getBody()
+        );
+    }
 
-        $resFactory = new ResponseFactory();
-        $response = $resFactory->createResponse(200);
-        $this->assertSame($expectedRes, $loan->submit($request, $response)->getBody());
+    public function testSubmitInvalidRequest(): void
+    {
+        $requestData = [
+            'name' => 'John', // Invalid: not two words
+            'ktp' => 'invalidktp', // Invalid KTP format
+            'loanAmount' => 50000, // Invalid: exceeds maximum
+            'loanPurpose' => 'unknown', // Invalid: not a valid purpose
+            'dateOfBirth' => 'invalid-date', // Invalid date format
+            'sex' => 'other' // Invalid: not male or female
+        ];
+
+        $request = new ServerRequest('POST', '/submit', [], json_encode($requestData));
+        $response = new Response();
+
+        $result = $this->loan->submit($request, $response);
+
+        $this->assertEquals(400, $result->getStatusCode());
+        $this->assertStringContainsString('Invalid request data', (string)$result->getBody());
+    }
+
+    public function testKTPValidation(): void
+    {
+        $validKTPMale = '1234561012001956'; // Valid for male
+        $validKTPFemale = '1234565012001956'; // Valid for female
+        $invalidKTP = '12345abcde67890';
+
+        $this->assertTrue($this->loan->validateKTP($validKTPMale));
+        $this->assertTrue($this->loan->validateKTP($validKTPFemale));
+        $this->assertFalse($this->loan->validateKTP($invalidKTP));
     }
 }
